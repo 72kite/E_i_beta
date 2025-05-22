@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-i - Your Intelligent Home Assistant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e; /* Dark blue, inspired by Eddie's colors */
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            font-size: 3em;
+            color: #f0a500; /* Gold/Orange accent */
+            text-shadow: 2px 2px 4px #000;
+        }
+        .container {
+            background-color: #162447; /* Slightly lighter blue */
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 800px;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #1f4068;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        h2 {
+            color: #f0a500;
+            border-bottom: 2px solid #f0a500;
+            padding-bottom: 5px;
+            margin-top: 0;
+        }
+        .status-display, .controls, .voice-command {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .status-item, .control-item {
+            background-color: #1f4068; /* Darker shade for items */
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-item span:first-child, .control-item label {
+            font-weight: bold;
+            color: #c9d6de;
+        }
+        .status-item span:last-child {
+            color: #a6dcef;
+        }
+        button, input[type="text"] {
+            padding: 10px 15px;
+            border-radius: 5px;
+            border: none;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        button {
+            background-color: #f0a500;
+            color: #162447;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #ffc107;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            background-color: #e0e0e0;
+            color: #1a1a2e;
+        }
+        #voice-input-area {
+            display: flex;
+            gap: 10px;
+        }
+        #command-feedback {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #1f4068;
+            border-radius: 5px;
+            min-height: 20px;
+            color: #a6dcef;
+        }
+        .control-buttons button {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>E-i</h1>
+    </header>
+
+    <div class="container">
+        <div class="section">
+            <h2>Home Status</h2>
+            <div class="status-display">
+                <div class="status-item">
+                    <span>Living Room Light:</span>
+                    <span id="light-status">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span>Thermostat Temp:</span>
+                    <span id="thermostat-temp">Loading...</span>
+                </div>
+                 <div class="status-item">
+                    <span>Thermostat Mode:</span>
+                    <span id="thermostat-mode">Loading...</span>
+                </div>
+                </div>
+        </div>
+
+        <div class="section">
+            <h2>Device Controls</h2>
+            <div class="controls">
+                <div class="control-item">
+                    <label for="light-control">Living Room Light:</label>
+                    <div class="control-buttons">
+                        <button onclick="controlDevice('light.your_light_entity_id', 'light', 'turn_on')">ON</button>
+                        <button onclick="controlDevice('light.your_light_entity_id', 'light', 'turn_off')">OFF</button>
+                    </div>
+                </div>
+                <div class="control-item">
+                    <label for="thermostat-control">Thermostat:</label>
+                    <div class="control-buttons">
+                        <input type="number" id="thermostat-setpoint" placeholder="Temp" style="width: 70px; text-align: center;">
+                        <button onclick="setThermostat()">Set</button>
+                    </div>
+                </div>
+                 <div class="control-item">
+                    <label for="lock-control">Front Door Lock:</label>
+                    <div class="control-buttons">
+                        <button onclick="controlDevice('lock.your_lock_entity_id', 'lock', 'lock')">Lock</button>
+                        <button onclick="controlDevice('lock.your_lock_entity_id', 'lock', 'unlock')">Unlock</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Voice Commands</h2>
+            <div class="voice-command">
+                <div id="voice-input-area">
+                    <input type="text" id="voice-command-text" placeholder="Type command or say (simulated)...">
+                    <button id="send-command-btn">Send</button>
+                     </div>
+                <div id="command-feedback">E-i: Waiting for your command...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const commandFeedback = document.getElementById('command-feedback');
+        const lightStatusEl = document.getElementById('light-status');
+        const thermostatTempEl = document.getElementById('thermostat-temp');
+        const thermostatModeEl = document.getElementById('thermostat-mode');
+        const voiceCommandText = document.getElementById('voice-command-text');
+        const sendCommandBtn = document.getElementById('send-command-btn');
+        // const listenBtn = document.getElementById('listen-btn'); // For actual microphone use later
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                lightStatusEl.textContent = data.light || 'N/A';
+                thermostatTempEl.textContent = data.thermostat_temp !== 'unknown' ? `${data.thermostat_temp}°` : 'N/A';
+                thermostatModeEl.textContent = data.thermostat_hvac_action || 'N/A';
+
+            } catch (error) {
+                console.error("Error fetching status:", error);
+                lightStatusEl.textContent = 'Error';
+                thermostatTempEl.textContent = 'Error';
+                thermostatModeEl.textContent = 'Error';
+            }
+        }
+
+        async function sendVoiceCommand(commandText) {
+            commandFeedback.textContent = 'E-i: Processing...';
+            try {
+                const response = await fetch('/api/listen', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_text: commandText }),
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: "Unknown error occurred" }));
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorData.message}`);
+                }
+                const result = await response.json();
+                commandFeedback.textContent = `E-i: ${result.response || result.message}`;
+                voiceCommandText.value = ''; // Clear input after sending
+                updateStatus(); // Refresh status after command
+            } catch (error) {
+                console.error('Error sending command:', error);
+                commandFeedback.textContent = `E-i: Error - ${error.message}`;
+            }
+        }
+
+        sendCommandBtn.addEventListener('click', () => {
+            const command = voiceCommandText.value.trim();
+            if (command) {
+                sendVoiceCommand(command);
+            } else {
+                commandFeedback.textContent = 'E-i: Please type a command.';
+            }
+        });
+
+        voiceCommandText.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendCommandBtn.click();
+            }
+        });
+
+        // Placeholder for actual listening button
+        // listenBtn.addEventListener('click', async () => {
+        //     commandFeedback.textContent = 'E-i: Listening... (Simulated)';
+        //     // In a real app, you'd trigger microphone access here
+        //     // For now, we'll just show a message. You can expand this with Web Speech API if desired for front-end recognition.
+        //     // The backend /api/listen currently expects text, so this button would need different handling
+        //     // or the backend would need to be adapted for raw audio stream (more complex).
+        //     setTimeout(() => {
+        //        if(voiceCommandText.value === "") commandFeedback.textContent = 'E-i: No command detected (simulated). Try typing one.';
+        //     }, 3000);
+        // });
+
+        async function controlDevice(entityId, domain, service, serviceData = {}) {
+            commandFeedback.textContent = `E-i: Sending command for ${entityId}...`;
+            try {
+                const response = await fetch('/api/device_control', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ entity_id: entityId, domain: domain, service: service, service_data: serviceData }),
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    commandFeedback.textContent = `E-i: ${result.message}`;
+                } else {
+                    commandFeedback.textContent = `E-i: Error - ${result.message}`;
+                }
+                updateStatus(); // Refresh status after control action
+            } catch (error) {
+                console.error('Error controlling device:', error);
+                commandFeedback.textContent = `E-i: Error - ${error.message}`;
+            }
+        }
+
+        function setThermostat() {
+            const tempValue = document.getElementById('thermostat-setpoint').value;
+            if (tempValue) {
+                controlDevice('climate.your_thermostat_entity_id', 'climate', 'set_temperature', { temperature: parseInt(tempValue) });
+            } else {
+                commandFeedback.textContent = 'E-i: Please enter a temperature.';
+            }
+        }
+
+
+        // Initial status update when page loads
+        updateStatus();
+        // Optionally, refresh status periodically
+        // setInterval(updateStatus, 10000); // every 10 seconds
+    </script>
+</body>
+</html>
